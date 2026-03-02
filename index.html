@@ -1,202 +1,191 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pointillist Landscape - Never Arrive (HD)</title>
-    <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { background:#0a0a1a; overflow:hidden; font-family:'Courier New', monospace; }
-        canvas { display:block; cursor:crosshair; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pointillist Landscape - Never Arrive (2K HD)</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0a1a; overflow:hidden; font-family:'Courier New', monospace; }
+canvas { display:block; cursor:crosshair; }
+</style>
 </head>
 <body>
-    <canvas id="canvas"></canvas>
-    <script>
-        const canvas = document.getElementById('canvas');
-        const ctx = canvas.getContext('2d');
-        
-        let width, height;
-        let particles = [];
-        let walker = { x:0, y:0, targetX:0, targetY:0 };
-        let animationId;
-        let isAnimating = true;
-        let time = 0;
+<canvas id="canvas"></canvas>
+<script>
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
 
-        const palettes = [
-            ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b'],
-            ['#ff006e', '#fb5607', '#ffbe0b', '#8338ec', '#3a86ff'],
-            ['#06ffa5', '#00f5ff', '#0099ff', '#6600ff', '#ff00aa'],
-            ['#ffbe0b', '#ff006e', '#8338ec', '#3a86ff', '#06ffa5'],
-        ];
-        let currentPalette = palettes[0];
+let width = 1920, height = 1080;
+let particles = [];
+let walker = { x:0, y:0, targetX:0, targetY:0 };
+let animationId;
+let isAnimating = true;
+let time = 0;
 
-        // ======= RESOLUTION + INITIALIZATION =======
-        function setResolution(w = 1920, h = 1080) {
-            width = w;
-            height = h;
-            canvas.width = width;
-            canvas.height = height;
-            initParticles();
-            initWalker();
-        }
+const palettes = [
+    ['#ff006e', '#8338ec', '#3a86ff', '#06ffa5', '#ffbe0b'],
+    ['#ff006e', '#fb5607', '#ffbe0b', '#8338ec', '#3a86ff'],
+    ['#06ffa5', '#00f5ff', '#0099ff', '#6600ff', '#ff00aa'],
+    ['#ffbe0b', '#ff006e', '#8338ec', '#3a86ff', '#06ffa5'],
+];
+let currentPalette = palettes[0];
 
-        function resize() {
-            // keep window size responsive if needed
-            setResolution(window.innerWidth, window.innerHeight);
-        }
+function setResolution(w=1920,h=1080){
+    const dpr = window.devicePixelRatio || 1;
+    width = w; height = h;
+    canvas.width = width*dpr;
+    canvas.height = height*dpr;
+    canvas.style.width = width+'px';
+    canvas.style.height = height+'px';
+    ctx.setTransform(1,0,0,1,0,0);
+    ctx.scale(dpr,dpr);
+}
 
-        function initParticles() {
-            particles = [];
-            const count = Math.floor((width * height) / 400);
-            for (let i = 0; i < count; i++) {
-                particles.push({
-                    x: Math.random() * width,
-                    y: Math.random() * height,
-                    size: Math.random()*3+1,
-                    baseSize: Math.random()*3+1,
-                    color: currentPalette[Math.floor(Math.random()*currentPalette.length)],
-                    alpha: Math.random()*0.6+0.2,
-                    layer: Math.random(),
-                    phase: Math.random()*Math.PI*2
-                });
-            }
-        }
+function resize(){ setResolution(window.innerWidth, window.innerHeight); }
 
-        function initWalker() {
-            walker.x = Math.random() * width;
-            walker.y = Math.random() * height;
-            walker.targetX = Math.random() * width;
-            walker.targetY = Math.random() * height;
-        }
+// ===== original initialization =====
+function initParticles(){
+    particles = [];
+    const count = Math.floor((width*height)/400);
+    for(let i=0;i<count;i++){
+        particles.push({
+            x: Math.random()*width,
+            y: Math.random()*height,
+            size: Math.random()*3+1,
+            baseSize: Math.random()*3+1,
+            color: currentPalette[Math.floor(Math.random()*currentPalette.length)],
+            alpha: Math.random()*0.6+0.2,
+            layer: Math.random(),
+            phase: Math.random()*Math.PI*2
+        });
+    }
+}
 
-        function noise(x,y,t){ return Math.sin(x*0.01+t)*Math.cos(y*0.01+t*0.5)*Math.sin((x+y)*0.005+t*0.3); }
+function initWalker(){
+    walker.x = Math.random()*width;
+    walker.y = Math.random()*height;
+    walker.targetX = Math.random()*width;
+    walker.targetY = Math.random()*height;
+}
 
-        function getLandscapeHeight(x,y){
-            const scale1 = 0.003, scale2 = 0.007, scale3 = 0.015;
-            let h = Math.sin(x*scale1 + time*0.2)*100 + Math.sin(x*scale2 + y*scale2*0.5)*50 + Math.sin(x*scale3)*25;
-            const valley = Math.abs(x-width/2)/(width/2);
-            h -= valley*valley*200;
-            return height*0.6 + h;
-        }
+function getLandscapeHeight(x,y){
+    const scale1 = 0.003, scale2=0.007, scale3=0.015;
+    let h = Math.sin(x*scale1 + time*0.2)*100 + Math.sin(x*scale2 + y*scale2*0.5)*50 + Math.sin(x*scale3)*25;
+    const valley = Math.abs(x-width/2)/(width/2);
+    h -= valley*valley*200;
+    return height*0.6+h;
+}
 
-        function drawWalker(){
-            walker.targetX = width/2 + Math.sin(time*0.3)*(width*0.3);
-            const groundY = getLandscapeHeight(walker.targetX,0);
-            walker.targetY = groundY-30;
+// ===== original walker draw preserved =====
+function drawWalker(){
+    walker.targetX = width/2 + Math.sin(time*0.3)*(width*0.3);
+    const groundY = getLandscapeHeight(walker.targetX,0);
+    walker.targetY = groundY-30;
+    walker.x += (walker.targetX-walker.x)*0.05;
+    walker.y += (walker.targetY-walker.y)*0.05;
 
-            walker.x += (walker.targetX-walker.x)*0.05;
-            walker.y += (walker.targetY-walker.y)*0.05;
+    ctx.globalAlpha=1;
+    ctx.fillStyle='#ffffff';
+    ctx.strokeStyle='#ffffff';
+    ctx.lineWidth=2;
 
-            ctx.globalAlpha = 1;
-            ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = '#ffffff';
-            ctx.lineWidth = 2;
+    const bounce = Math.abs(Math.sin(time*3))*5;
+    const wobble = Math.sin(time*2)*2;
+    ctx.beginPath();
+    ctx.arc(walker.x, walker.y-25+bounce,6,0,Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(walker.x, walker.y-19+bounce); ctx.lineTo(walker.x+wobble, walker.y+bounce); ctx.stroke();
+    const legSwing = Math.sin(time*4)*10;
+    ctx.beginPath(); ctx.moveTo(walker.x, walker.y+bounce); ctx.lineTo(walker.x-8+legSwing, walker.y+20+bounce); 
+    ctx.moveTo(walker.x, walker.y+bounce); ctx.lineTo(walker.x+8-legSwing, walker.y+20+bounce); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(walker.x, walker.y-10+bounce); ctx.lineTo(walker.x-10-wobble, walker.y+5+bounce);
+    ctx.moveTo(walker.x, walker.y-10+bounce); ctx.lineTo(walker.x+10+wobble, walker.y+5+bounce); ctx.stroke();
 
-            const bounce = Math.abs(Math.sin(time*3))*5;
-            const wobble = Math.sin(time*2)*2;
+    ctx.globalAlpha=0.2;
+    ctx.beginPath();
+    ctx.arc(walker.x, walker.y,40,0,Math.PI*2);
+    ctx.fillStyle='#ffffff';
+    ctx.fill();
+}
 
-            ctx.beginPath();
-            ctx.arc(walker.x, walker.y-25+bounce, 6,0,Math.PI*2); ctx.fill();
-            ctx.beginPath(); ctx.moveTo(walker.x, walker.y-19+bounce); ctx.lineTo(walker.x+wobble, walker.y+bounce); ctx.stroke();
-            const legSwing = Math.sin(time*4)*10;
-            ctx.beginPath(); ctx.moveTo(walker.x, walker.y+bounce); ctx.lineTo(walker.x-8+legSwing, walker.y+20+bounce); 
-            ctx.moveTo(walker.x, walker.y+bounce); ctx.lineTo(walker.x+8-legSwing, walker.y+20+bounce); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(walker.x, walker.y-10+bounce); ctx.lineTo(walker.x-10-wobble, walker.y+5+bounce); 
-            ctx.moveTo(walker.x, walker.y-10+bounce); ctx.lineTo(walker.x+10+wobble, walker.y+5+bounce); ctx.stroke();
+function drawStars(){
+    ctx.globalAlpha=0.8;
+    ctx.fillStyle='#ffffff';
+    for(let i=0;i<100;i++){
+        const x=(i*137.5+time*10)%width;
+        const y=(i*71.3)%(height*0.4);
+        const size=Math.random()*1.5;
+        const twinkle=Math.sin(time*3+i)*0.5+0.5;
+        ctx.globalAlpha=twinkle*0.8;
+        ctx.beginPath();
+        ctx.arc(x,y,size,0,Math.PI*2);
+        ctx.fill();
+    }
+}
 
-            ctx.globalAlpha = 0.2;
-            ctx.beginPath();
-            ctx.arc(walker.x, walker.y,40,0,Math.PI*2);
-            ctx.fillStyle = '#ffffff';
-            ctx.fill();
-        }
+function animate(){
+    if(!isAnimating) return;
+    ctx.globalAlpha=0.1;
+    ctx.fillStyle='#0a0a1a';
+    ctx.fillRect(0,0,width,height);
+    time+=0.016;
+    drawStars();
+    particles.forEach(p=>{
+        const landscapeY = getLandscapeHeight(p.x,p.y);
+        if(p.y>landscapeY){ p.alpha=Math.min(0.8,p.alpha+0.01); p.size=p.baseSize*(1+Math.random()); }
+        else{ p.alpha=Math.max(0.1,p.alpha-0.005); p.size=p.baseSize*0.5; p.alpha += Math.sin(time*2+p.phase)*0.02; }
+        p.x += Math.sin(time+p.phase)*0.2; p.y += Math.cos(time*0.5+p.phase)*0.1;
+        ctx.globalAlpha=Math.max(0,Math.min(1,p.alpha));
+        ctx.fillStyle=p.color;
+        ctx.beginPath();
+        ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
+        ctx.fill();
+    });
+    drawWalker();
+    animationId=requestAnimationFrame(animate);
+}
 
-        function drawStars(){
-            ctx.globalAlpha = 0.8;
-            ctx.fillStyle = '#ffffff';
-            for(let i=0;i<100;i++){
-                const x = (i*137.5+time*10)%width;
-                const y = (i*71.3)%(height*0.4);
-                const size = Math.random()*1.5;
-                const twinkle = Math.sin(time*3+i)*0.5+0.5;
-                ctx.globalAlpha = twinkle*0.8;
-                ctx.beginPath();
-                ctx.arc(x,y,size,0,Math.PI*2);
-                ctx.fill();
-            }
-        }
+function generate(){
+    currentPalette = palettes[Math.floor(Math.random()*palettes.length)];
+    time=0;
+    initParticles();
+    ctx.fillStyle='#0a0a1a';
+    ctx.globalAlpha=1;
+    ctx.fillRect(0,0,width,height);
+}
 
-        function animate(){
-            if(!isAnimating) return;
-            ctx.globalAlpha = 0.1;
-            ctx.fillStyle = '#0a0a1a';
-            ctx.fillRect(0,0,width,height);
-            time += 0.016;
-            drawStars();
-            particles.forEach(p => { 
-                // update particles
-                const landscapeY = getLandscapeHeight(p.x,p.y);
-                if(p.y>landscapeY){ p.alpha=Math.min(0.8,p.alpha+0.01); p.size=p.baseSize*(1+Math.random()); }
-                else{ p.alpha=Math.max(0.1,p.alpha-0.005); p.size=p.baseSize*0.5; p.alpha += Math.sin(time*2+p.phase)*0.02; }
-                p.x += Math.sin(time+p.phase)*0.2; p.y += Math.cos(time*0.5+p.phase)*0.1;
-                ctx.globalAlpha=Math.max(0,Math.min(1,p.alpha));
-                ctx.fillStyle=p.color;
-                ctx.beginPath();
-                ctx.arc(p.x,p.y,p.size,0,Math.PI*2);
-                ctx.fill();
-            });
-            drawWalker();
-            animationId = requestAnimationFrame(animate);
-        }
+function toggleAnimation(){ isAnimating=!isAnimating; if(isAnimating) animate(); }
+function saveImage(){ const a=document.createElement('a'); a.download='pointillist-landscape.png'; a.href=canvas.toDataURL(); a.click(); }
 
-        function generate(){
-            currentPalette = palettes[Math.floor(Math.random()*palettes.length)];
-            time=0;
-            initParticles();
-            ctx.fillStyle='#0a0a1a';
-            ctx.globalAlpha=1;
-            ctx.fillRect(0,0,width,height);
-        }
+// === Automatic HD Recording ===
+let recorder; let chunks=[];
+function startRecording(durationMs=30000){
+    try{
+        const stream=canvas.captureStream(60);
+        recorder=new MediaRecorder(stream,{mimeType:"video/webm",videoBitsPerSecond:25000000});
+        recorder.ondataavailable=e=>{if(e.data.size>0) chunks.push(e.data);}
+        recorder.onstop=()=>{
+            const blob=new Blob(chunks,{type:"video/webm"});
+            const url=URL.createObjectURL(blob);
+            const a=document.createElement('a');
+            a.href=url; a.download="pointillist_landscape_2k_HD.webm";
+            a.click();
+            URL.revokeObjectURL(url);
+        };
+        recorder.start();
+        setTimeout(()=>recorder.stop(),durationMs);
+    }catch(e){console.warn("Recording not supported.");}
+}
 
-        function toggleAnimation(){ isAnimating=!isAnimating; if(isAnimating) animate(); }
-        function saveImage(){ const a=document.createElement('a'); a.download='pointillist-landscape.png'; a.href=canvas.toDataURL(); a.click(); }
+// === Initialize ===
+setResolution(1920,1080);
+initParticles();
+initWalker();
+animate();
+startRecording(30000);
 
-        // ============================
-        // Automatic HD Recording
-        // ============================
-        let recorder;
-        let chunks = [];
-
-        function startRecording(durationMs=30000){ // 30s default
-            try{
-                const stream = canvas.captureStream(60);
-                recorder = new MediaRecorder(stream,{ mimeType:"video/webm", videoBitsPerSecond:25000000 });
-                recorder.ondataavailable=e=>{if(e.data.size>0)chunks.push(e.data);}
-                recorder.onstop=()=>{
-                    const blob=new Blob(chunks,{type:"video/webm"});
-                    const url=URL.createObjectURL(blob);
-                    const a=document.createElement("a");
-                    a.href=url; a.download="pointillist_landscape_HD.webm";
-                    a.click();
-                    URL.revokeObjectURL(url);
-                };
-                recorder.start();
-                setTimeout(()=>recorder.stop(), durationMs);
-            }catch(e){ console.warn("Recording not supported."); }
-        }
-
-        // ============================
-        // Initialize HD canvas + animation + recording
-        // ============================
-        setResolution(1920,1080); // HD canvas
-        animate();
-        startRecording(30000); // record 30s automatically
-
-        // Optional: regenerate on click
-        canvas.addEventListener('click', generate);
-        window.addEventListener('resize', resize);
-
-    </script>
+canvas.addEventListener('click',generate);
+window.addEventListener('resize',()=>setResolution(window.innerWidth,window.innerHeight));
+</script>
 </body>
 </html>
